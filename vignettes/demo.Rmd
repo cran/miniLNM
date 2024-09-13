@@ -1,0 +1,79 @@
+---
+title: "Example on Simulated Data"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Example on Simulated Data}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, echo = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+knitr::knit_hooks$set(output = miniLNM::ansi_aware_handler)
+options(crayon.enabled = TRUE)
+```
+
+```{r setup, message = FALSE}
+library(miniLNM)
+library(dplyr)
+set.seed(20240904)
+```
+
+This vignette illustrates use of the `lnm` function using a simulated dataset.
+First, we create some example data coming from a true LNM model.
+
+```{r}
+example_data <- lnm_data(N = 200, K = 20)
+xy <- bind_cols(example_data[c("X", "y")])
+```
+
+Next, we define the regression. We are using an extension of the formula
+interface that allows for multiple outcomes. This allows us to use it for a
+wider range of integration problems, like in our multimedia package for
+mediation analysis.
+
+```{r}
+fit <- lnm(starts_with("y") ~ starts_with("x"), xy, refresh = 0)
+fit
+```
+
+Once we have estimated the model, we can use predict to get the fitted
+compositions on the training data. We can also draw new samples at different
+read depths and use `newdata` to sample at new design points.
+
+```{r}
+newx <- lnm_data()$X
+new_p_hat <- predict(fit, newx, depth = 300)
+```
+
+Let's verify that the estimates are close to the truth. First we'll get some
+fitted values.
+
+```{r}
+p_hat <- predict(fit, example_data$X)
+y_star <- sample(fit, newdata = example_data$X, depth = 1e4)
+```
+
+The block below compares some posterior predictive samples with the original
+data. The overlap between red and black points means that the simulated data are
+a close match to the original samples.
+
+```{r}
+true <- colMeans(example_data$y / rowSums(example_data$y))
+fitted <- colMeans(y_star / rowSums(y_star))
+plot(true, colMeans(p_hat), asp = 1)
+points(true, fitted, col = "red")
+abline(a = 0, b = 1)
+```
+
+We can also check the estimated coefficients. Everything is *slightly* shrunk
+towards zero, but this is what you would expect given the normal prior.
+
+```{r}
+plot(example_data$B, beta_mean(fit))
+abline(a = 0, b = 1)
+```
+
+```{r}
+sessionInfo()
+```
